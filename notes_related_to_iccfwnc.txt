@@ -1,0 +1,79 @@
+
+sudo docker image build -t 23278942/contract_analysis:iccfwnc .
+
+sudo docker push 23278942/contract_analysis:iccfwnc 
+
+sudo docker run -it --rm --cpus 1 -m 4096m -v /home/wei/PycharmProjects/Contracts/_wei:/home/iccfwnc  --entrypoint /bin/bash 23278942/contract_analysis:iccfwnc
+
+sudo docker run -it --cpus 1 -m 4096m -v /home/wei/PycharmProjects/Contracts/_wei:/home/iccfwnc --name iccfwnc_pre --entrypoint /bin/bash 23278942/contract_analysis:iccfwnc
+
+
+
+
+install solc-select manually in a container and commit the container to get the new image iccfwnc_2
+
+sudo docker container commit 6470c1bea1d4 23278942/contract_analysis:iccfwnc_2
+sudo docker push 23278942/contract_analysis:iccfwnc_2
+
+sudo docker run -it --rm --cpus 1 -m 4096m  --entrypoint /bin/bash 23278942/contract_analysis:iccfwnc_2
+
+
+# every time to enter the container: remember to add the path:
+export PATH=/home/iccfwnc/.local/bin:$PATH
+
+
+# importance:
+when manually install solc-select in the directory that is bound to a host directory, the changes related to solc-select are not saved in the new committed image.
+
+
+# in singularity container, accessing the root directory is not allowed.
+solc-select finds the installed solc version in $HOME/.solc-select/artifacts/
+
+so when solc versions are in root directory ( the default case when no user is added in Dockerfile), there is no way for solc-select to find. Hence, in sigularity container, there would be error must install the VERSION before 'solc-select use VERSION'
+
+
+
+the solution: that installing solc-select through singularity shell in the $HOME directory, then all singularity containers can find solc versions since they share $HOME. But all containers access the shared directory and modify the solc versions, the consequences are not clear.
+
+current solution:
+designate each contaienr a different $HOME directory, and install solc version in each of all $HOME directories.
+
+
+The solution that installing solc-select in the user directory: /home/iccfwnc/.local/bin is not workable.
+reason: in the Singularity contaienr, access .local directory require root permission. the command solc-select is not found. Even adding path: /home/iccfwnc/.local/bin through export, solc-select still can not be found. 
+
+
+# example of parameters
+
+/media/sf___share_vms/sGuard_contracts/0x59ea1Be5a87C8700689EA5A38FB9c760D81aB64E.sol:MonetaryPolicy
+
+/media/sf___share_vms/CourtPresaleActivate.sol:CourtPresaleActivate
+
+
+#=======================================================
+# December 19, 2022
+iccfwnc: identify contracts calling functions with no code
+
+built based on the AST of contracts, which is received from solc compiler.
+
+
+-------------------------------------------------------
+python3 open file error[12] permission denied in Singularity container
+
+there is no problem when running within docker container.
+
+solution: package the code of iccfwnc as a tool and install it(i.e. by add setup.py file and organize the relevant files)
+
+
+
+-------------------------------------------------
+regarding solc-select
+when building docker images, all versions of solc are installed. There is no problem to use solc-select to select the version of solc in docker containers. (solc artifacts are in /root/.solc-select)
+
+In singularity containers derived from docker images, solc-select can not recognize the version of solc.
+The reason is that solc-select tries to find solc compilers in $HOME/.solc-select,not /root/.solc-select.
+
+
+
+
+
