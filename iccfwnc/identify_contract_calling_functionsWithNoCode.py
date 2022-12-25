@@ -90,6 +90,7 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
     :return:
     """
     involved_contracts=[]
+
     # from the state variables
     results=[]
     for values in search_str1:
@@ -111,6 +112,8 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
                 results2.append(f'\t{values[2]}:: {values[0]}.{values[1]}:: {line.strip()}')
                 if values[2] not in involved_contracts:
                     involved_contracts.append(values[2])
+
+
     # directly check if the function contains the names of the contracts that have no code
     results3 = []
     for value in search_str3:
@@ -130,6 +133,7 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
                 if value not in involved_contracts:
                     involved_contracts.append(value)
 
+
     #output searching results
     if len(results)>0 or len(results2)>0 or len(results3)>0:
         print(f'==== {method_name} ====')
@@ -145,7 +149,7 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
             print(f'\t-- from the names of the contracts not implemented --')
             for item in results3:
                 print(item)
-    return involved_contracts
+    return involved_contracts,results,results2,results3,results4
 
 def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, contract_method_identifiers:dict, contract_ast_data:dict,target_sv_info:dict,target_ftn_info:dict):
     target_data=contract_ast_data[contract_name]
@@ -188,12 +192,22 @@ def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, cont
         # get the source code of the method
         source_code=get_source_code(file_path,data['src'])
         source_lines=source_code.split('\n')
-        contracts_involved=search_strings_in_source_code(ftn_name,source_lines, search_strings_from_state_variables,search_strings_from_parameters,list(contracts_not_implemented.keys()),list(contract_ast_data.keys()))
+
+        # search in the source code of the ethod
+        call_from_sv = {}
+        call_from_parameter = {}
+        call_from_within_body = {}
+        invoke_any_contracts = {}
+        contracts_involved,re1,re2,re3,re4=search_strings_in_source_code(ftn_name,source_lines, search_strings_from_state_variables,search_strings_from_parameters,list(contracts_not_implemented.keys()),list(contract_ast_data.keys()))
         for item in contracts_involved:
             if item not in all_contracts_involved:
                 all_contracts_involved.append(item)
+        call_from_sv[ftn_name]=re1,
+        call_from_parameter=re2
+        call_from_within_body=re3
+        invoke_any_contracts=re4 # contracts other than the target contract
 
-    return all_contracts_involved
+    return all_contracts_involved,call_from_sv,call_from_parameter,call_from_within_body,invoke_any_contracts
 
 
 def get_target_contract_function_ast_data(data,method_identifiers:dict,file_path:str,contract_name:str):
@@ -318,8 +332,11 @@ def get_target_contract_function_ast_data(data,method_identifiers:dict,file_path
 
 
 def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:str,solc_settings_json) :
+    output = {}
     if ":" in solidity_file_contract:
         file, contract_name = solidity_file_contract.split(":")
+        output['solidity_file']=str(file).split("/")[-1]
+        output['contract_name']=contract_name
     else:
         print(f'No target function is specified!')
         return
@@ -331,49 +348,52 @@ def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:st
         file, solc_settings_json=solc_settings_json, solc_binary=solc_binary
     )
 
+    # get the method identifiers for all contracts in the Solidity file
     contract_mi=get_contract_method_identifiers(data)
-    contract_ast_data=get_contract_ast_data(data)
+    output['method_identifiers']=contract_mi
 
+    # get the contract data from ast
+    contract_ast_data=get_contract_ast_data(data)
+    output['ast_data']=contract_ast_data
 
     target_sv_info,target_ftn_info,bytecode_size=get_target_contract_function_ast_data(data,contract_mi,file,contract_name)
+    output['runtime_bytecode_size']=bytecode_size
+    involved_contracts,call_from_sv,call_from_parameter,call_from_within_body,invoke_any_contracts\
+        =detect_if_calling_functionsWithNoCode(file, contract_name, contract_mi, contract_ast_data,target_sv_info,target_ftn_info)
 
-    involved_contracts=detect_if_calling_functionsWithNoCode(file, contract_name, contract_mi, contract_ast_data,target_sv_info,target_ftn_info)
+    output['target_sv_info']=target_sv_info
+    output['target_ftn_info']=target_ftn_info
+    output['call_from_sv']=call_from_sv
+    output['call_from_parameters']=call_from_parameter
+    output['call_from_within_body']=call_from_within_body
+    output['invoke_any_contracts']=invoke_any_contracts
+
 
     target_ast_data=contract_ast_data[contract_name]
+
     implemented=True
     if not target_ast_data['fullyImplemented']:
         implemented=False
+    output['fullyImplemented']=implemented
+
 
     # get base contracts
-    involved_contract_ids=target_ast_data['dependency']
-    for values in target_sv_info.values():
-        id=values['type_id']
-        if id is not None:
-            if isinstance(id,str):
-                if id.isnumeric():
-                    id=int(id)
-            if id not in involved_contract_ids:
-                involved_contract_ids.append(id)
-
-    for values in target_ftn_info.values():
-        if 'parameters' in values.keys():
-            for v in values['parameters'].values():
-                id=v['type_id']
-                if id is not None:
-                    if isinstance(id,str):
-                        if id.isnumeric():
-                            id=int(id)
-                    if id not in involved_contract_ids:
-                        involved_contract_ids.append(id)
-
-    for d in involved_contract_ids:
+    base_contract_ids=target_ast_data['dependency']
+    base_contracts=[]
+    for d in  base_contract_ids:
         for con_name,values in contract_ast_data.items():
             if values['id']==d:
-                if con_name not in involved_contracts:
-                    involved_contracts.append(con_name)
-    print(f'fully implemented: the size of deployed bytecode: involved contract names')
-    print(f'++++ {implemented}:{bytecode_size}:{involved_contracts} ++++')
+                base_contracts.append(con_name)
+    output['base_contracts']=base_contracts
+    output['invoke_contracts']=involved_contracts
+    print(f'fully implemented:base contracts :the size of deployed bytecode: involved contract names')
+    print(f'++++ {implemented}:{bytecode_size}:{base_contracts}:{involved_contracts} ++++')
 
+    last_idx=file.rindex('.')
+    with open(str(file)[0:last_idx]+".json",'w') as fw:
+        json.dump(output,fw)
+
+        fw.close()
 
     # for name,value in target_ftn_info.items():
     #     source_code=get_source_code(file,value['src'])
@@ -383,6 +403,7 @@ def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:st
     #     source_code=get_source_code(file,value['src'])
     #     print(f'==== source code of {name} ====')
     #     print(source_code)
+
     # except ParserError as e:
     #     print(f'Error message: {str(e)}')
     # except KeyError as e:
