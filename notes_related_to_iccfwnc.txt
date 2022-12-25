@@ -8,14 +8,9 @@ sudo docker run -it --rm --cpus 1 -m 4096m -v /home/wei/PycharmProjects/Contract
 sudo docker run -it --cpus 1 -m 4096m -v /home/wei/PycharmProjects/Contracts/_wei:/home/iccfwnc --name iccfwnc_pre --entrypoint /bin/bash 23278942/contract_analysis:iccfwnc
 
 
+sudo docker image build -t 23278942/contract_analysis:iccfwnc_1 .
 
-
-install solc-select manually in a container and commit the container to get the new image iccfwnc_2
-
-sudo docker container commit 6470c1bea1d4 23278942/contract_analysis:iccfwnc_2
-sudo docker push 23278942/contract_analysis:iccfwnc_2
-
-sudo docker run -it --rm --cpus 1 -m 4096m  --entrypoint /bin/bash 23278942/contract_analysis:iccfwnc_2
+sudo docker push 23278942/contract_analysis:iccfwnc_1 
 
 
 # every time to enter the container: remember to add the path:

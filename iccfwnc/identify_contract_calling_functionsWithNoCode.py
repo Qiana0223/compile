@@ -115,8 +115,9 @@ def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, cont
     contracts_not_implemented= {}
     for name,data in contract_ast_data.items():
         if str(name).__eq__(contract_name):continue
-        if data['id'] in target_data['dependency']: continue # ignore inherited contract
-        if data['fullyImplemented']:continue
+        if data['id'] in target_data['dependency']:continue
+        if data['fullyImplemented']: continue
+
         contracts_not_implemented[name]=data['id']
 
     # get search strings
@@ -343,7 +344,7 @@ def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:st
         contract_mi=get_contract_method_identifiers(data)
         contract_ast_data=get_contract_ast_data(data)
 
-        # ftn_srcmap,ftn_properties=get_function_ast_data(data,contract_mi,file)
+
         target_sv_info,target_ftn_info,bytecode_size=get_target_contract_function_ast_data(data,contract_mi,file,contract_name)
         detect_if_calling_functionsWithNoCode(file, contract_name, contract_mi, contract_ast_data,target_sv_info,target_ftn_info)
 
@@ -393,9 +394,10 @@ def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:st
         #     print(f'==== source code of {name} ====')
         #     print(source_code)
     except ParserError as e:
-        print(str(e))
+        print(f'Error message: {str(e)}')
     except KeyError as e:
-        print(str(e))
+
+        print(f'Error message: {str(e)}')
     except Exception as e:
         error_msg = str(e)
         print(f'Error message: {error_msg}')
