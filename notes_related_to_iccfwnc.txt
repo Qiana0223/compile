@@ -42,7 +42,11 @@ reason: in the Singularity contaienr, access .local directory require root permi
 
 /media/sf___share_vms/sGuard_contracts/0x59ea1Be5a87C8700689EA5A38FB9c760D81aB64E.sol:MonetaryPolicy
 
+0.5.8
 /media/sf___share_vms/CourtPresaleActivate.sol:CourtPresaleActivate
+
+0.7.5
+/home/wei/PycharmProjects/contract_status/iccfwnc/examples/Forwarder.sol:Forwarder
 
 
 #=======================================================

@@ -77,7 +77,20 @@ def check_substring(contract1_name:str,contract2_name:str,str1_list:list,str2_li
         for item in results:
             print(item)
 
-def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:list,search_str2:list):
+def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:list,search_str2:list,search_str3:list,search_str4:list):
+    """
+
+    :param method_name:
+    :param source_lines:
+    :param search_str1: search strings obtained from state variables
+    :param search_str2: search strings obtained from function state variables
+    :param search_str3: search strings obtained from the names of unimplemented contracts
+    :param search_str4: search strings obtained from the names of othr contracts
+
+    :return:
+    """
+    involved_contracts=[]
+    # from the state variables
     results=[]
     for values in search_str1:
         assert len(values)==3
@@ -85,8 +98,10 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
         for idx,line in enumerate(source_lines):
             if re.search(f'\s*{values[0]}\s*.\s*{values[1]}\s*\(',line):
                 results.append(f'\t{values[2]}:: {values[0]}.{values[1]}:: {line.strip()}')
+                if values[2] not in involved_contracts:
+                    involved_contracts.append(values[2])
 
-
+    # from the function parameters
     results2 = []
     for values in search_str2:
         assert len(values) == 3
@@ -94,8 +109,29 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
         for idx, line in enumerate(source_lines):
             if re.search(f'\s*{values[0]}\s*.\s*{values[1]}\s*\(', line):
                 results2.append(f'\t{values[2]}:: {values[0]}.{values[1]}:: {line.strip()}')
+                if values[2] not in involved_contracts:
+                    involved_contracts.append(values[2])
+    # directly check if the function contains the names of the contracts that have no code
+    results3 = []
+    for value in search_str3:
+        # assume the statements calling functions are in a line
+        for idx, line in enumerate(source_lines):
+            if re.search(f'\s*{value}\s*', line):
+                results3.append(f'\t{value}:: {line.strip()}')
+                if value not in involved_contracts:
+                    involved_contracts.append(value)
 
-    if len(results)>0 or len(results2)>0:
+    results4 = []
+    for value in search_str4:
+        # assume the statements calling functions are in a line
+        for idx, line in enumerate(source_lines):
+            if re.search(f'\s*{value}\s*', line):
+                results4.append(f'\t{value}:: {line.strip()}')
+                if value not in involved_contracts:
+                    involved_contracts.append(value)
+
+    #output searching results
+    if len(results)>0 or len(results2)>0 or len(results3)>0:
         print(f'==== {method_name} ====')
         if len(results)>0:
             print(f'\t-- from state variable --')
@@ -105,6 +141,11 @@ def search_strings_in_source_code(method_name:str,source_lines:list,search_str1:
             print(f'\t-- from function parameters --')
             for item in results2:
                 print(item)
+        if len(results3)>0:
+            print(f'\t-- from the names of the contracts not implemented --')
+            for item in results3:
+                print(item)
+    return involved_contracts
 
 def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, contract_method_identifiers:dict, contract_ast_data:dict,target_sv_info:dict,target_ftn_info:dict):
     target_data=contract_ast_data[contract_name]
@@ -117,7 +158,6 @@ def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, cont
         if str(name).__eq__(contract_name):continue
         if data['id'] in target_data['dependency']:continue
         if data['fullyImplemented']: continue
-
         contracts_not_implemented[name]=data['id']
 
     # get search strings
@@ -130,7 +170,8 @@ def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, cont
                         pure_name= str(method_name).split('(')[0] if '(' in method_name else method_name
                         search_strings_from_state_variables.append([sv_name,pure_name,contract_name])
 
-    # go through each functions of the target contract
+    all_contracts_involved=[]
+    # get search strings by going through each functions of the target contract
     for ftn_name, data in target_ftn_info.items():
         search_strings_from_parameters=[]
         if 'parameters' in data.keys():
@@ -147,62 +188,13 @@ def detect_if_calling_functionsWithNoCode(file_path:str, contract_name:str, cont
         # get the source code of the method
         source_code=get_source_code(file_path,data['src'])
         source_lines=source_code.split('\n')
-        search_strings_in_source_code(ftn_name,source_lines, search_strings_from_state_variables,search_strings_from_parameters)
+        contracts_involved=search_strings_in_source_code(ftn_name,source_lines, search_strings_from_state_variables,search_strings_from_parameters,list(contracts_not_implemented.keys()),list(contract_ast_data.keys()))
+        for item in contracts_involved:
+            if item not in all_contracts_involved:
+                all_contracts_involved.append(item)
 
+    return all_contracts_involved
 
-def get_function_ast_data(data,method_identifiers:dict,file_path:str):
-    selector_to_function={} # for noeds of (0x2caf5a42ec2d6747ec696714bf913b174d94fdf0.sol	0.5.17	LexLocker), they have function selector
-    pure_name_to_full_name = {}  # for nodes of Crowdsale, they does not have function selector
-
-    for con_name,mi in method_identifiers.items():
-        selector_to_function[con_name]={}
-        pure_name_to_full_name[con_name]={}
-        for ftn,selector in mi.items():
-            selector_to_function[con_name][selector]=ftn
-            if '(' in str(ftn):
-                pure_name=str(ftn).split('(')[0]
-            else:
-                pure_name=ftn
-            pure_name_to_full_name[con_name][pure_name]=ftn
-    ftns_ast_srcmap= {}
-    ftn_properties= {}
-
-    # get the srcmap for each public/external function
-    nodes_sourceUnit = data['sources'][file_path]['ast']['nodes']
-    for nodes_contractDefinition in nodes_sourceUnit:
-        if nodes_contractDefinition['nodeType'] == 'ContractDefinition':
-            con_name = nodes_contractDefinition['name']
-            ftns_ast_srcmap[con_name] = {}
-            ftn_properties[con_name]={}
-            for node in nodes_contractDefinition['nodes']:
-                if node['nodeType'] in ['FunctionDefinition','VariableDeclaration' ] and node['visibility'] in ['public', 'external']:
-                    ftn_name = node['name']
-                    if len(str(ftn_name))>0:
-                        # get the full name
-                        if 'functionSelector' in node.keys():
-                            selector=node['functionSelector']
-                            if selector in selector_to_function[con_name].keys():
-                                ftn_name=selector_to_function[con_name][selector]
-                        elif ftn_name in pure_name_to_full_name[con_name].keys():
-                            ftn_name=pure_name_to_full_name[con_name][ftn_name]
-
-                        v=node['visibility'] if 'visibility' in node.keys() else None
-                        m=node['stateMutability'] if 'stateMutability' in node.keys() else None
-
-                        ftn_properties[con_name][ftn_name]=[v,m]
-                        ftns_ast_srcmap[con_name][ftn_name] = [int(item) for item in str(node["src"]).split(':')]
-
-                    else:
-                        if 'kind' in node.keys():
-                            ftn_name=node['kind']
-                        elif 'isConstructor' in node.keys():
-                            if node['isConstructor']:
-                                ftn_name='constructor'
-                            else:ftn_name='fallback'
-                        if ftn_name=='fallback':
-                            ftns_ast_srcmap[con_name][ftn_name] = [int(item) for item in
-                                                                        str(node["src"]).split(':')]
-    return ftns_ast_srcmap,ftn_properties
 
 def get_target_contract_function_ast_data(data,method_identifiers:dict,file_path:str,contract_name:str):
 
@@ -325,8 +317,6 @@ def get_target_contract_function_ast_data(data,method_identifiers:dict,file_path
     return  state_variables_info,function_info,contract_len
 
 
-
-
 def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:str,solc_settings_json) :
     if ":" in solidity_file_contract:
         file, contract_name = solidity_file_contract.split(":")
@@ -336,71 +326,71 @@ def check_if_call_functionsWithNoCode( solidity_file_contract:str,solc_binary:st
     print(f'**** {str(file).split("/")[-1]}:{contract_name} ****')
     file = os.path.expanduser(file)
 
-    try:
-        data = solc_data.get_solc_json(
-            file, solc_settings_json=solc_settings_json, solc_binary=solc_binary
-        )
+    # try:
+    data = solc_data.get_solc_json(
+        file, solc_settings_json=solc_settings_json, solc_binary=solc_binary
+    )
 
-        contract_mi=get_contract_method_identifiers(data)
-        contract_ast_data=get_contract_ast_data(data)
-
-
-        target_sv_info,target_ftn_info,bytecode_size=get_target_contract_function_ast_data(data,contract_mi,file,contract_name)
-        detect_if_calling_functionsWithNoCode(file, contract_name, contract_mi, contract_ast_data,target_sv_info,target_ftn_info)
-
-        target_ast_data=contract_ast_data[contract_name]
-        implemented=True
-        if not target_ast_data['fullyImplemented']:
-            implemented=False
-
-        involved_contracts=[]
-        # get base contracts
-        involved_contract_ids=target_ast_data['dependency']
-        for values in target_sv_info.values():
-            id=values['type_id']
-            if id is not None:
-                if isinstance(id,str):
-                    if id.isnumeric():
-                        id=int(id)
-                if id not in involved_contract_ids:
-                    involved_contract_ids.append(id)
-
-        for values in target_ftn_info.values():
-            if 'parameters' in values.keys():
-                for v in values['parameters'].values():
-                    id=v['type_id']
-                    if id is not None:
-                        if isinstance(id,str):
-                            if id.isnumeric():
-                                id=int(id)
-                        if id not in involved_contract_ids:
-                            involved_contract_ids.append(id)
-
-        for d in involved_contract_ids:
-            for con_name,values in contract_ast_data.items():
-                if values['id']==d:
-                    if con_name not in involved_contracts:
-                        involved_contracts.append(con_name)
-        print(f'fully implemented: the size of deployed bytecode: involved contract names')
-        print(f'++++ {implemented}:{bytecode_size}:{involved_contracts} ++++')
+    contract_mi=get_contract_method_identifiers(data)
+    contract_ast_data=get_contract_ast_data(data)
 
 
-        # for name,value in target_ftn_info.items():
-        #     source_code=get_source_code(file,value['src'])
-        #     print(f'==== source code of {name} ====')
-        #     print(source_code)
-        # for name,value in target_sv_info.items():
-        #     source_code=get_source_code(file,value['src'])
-        #     print(f'==== source code of {name} ====')
-        #     print(source_code)
-    except ParserError as e:
-        print(f'Error message: {str(e)}')
-    except KeyError as e:
+    target_sv_info,target_ftn_info,bytecode_size=get_target_contract_function_ast_data(data,contract_mi,file,contract_name)
 
-        print(f'Error message: {str(e)}')
-    except Exception as e:
-        error_msg = str(e)
-        print(f'Error message: {error_msg}')
+    involved_contracts=detect_if_calling_functionsWithNoCode(file, contract_name, contract_mi, contract_ast_data,target_sv_info,target_ftn_info)
+
+    target_ast_data=contract_ast_data[contract_name]
+    implemented=True
+    if not target_ast_data['fullyImplemented']:
+        implemented=False
+
+    # get base contracts
+    involved_contract_ids=target_ast_data['dependency']
+    for values in target_sv_info.values():
+        id=values['type_id']
+        if id is not None:
+            if isinstance(id,str):
+                if id.isnumeric():
+                    id=int(id)
+            if id not in involved_contract_ids:
+                involved_contract_ids.append(id)
+
+    for values in target_ftn_info.values():
+        if 'parameters' in values.keys():
+            for v in values['parameters'].values():
+                id=v['type_id']
+                if id is not None:
+                    if isinstance(id,str):
+                        if id.isnumeric():
+                            id=int(id)
+                    if id not in involved_contract_ids:
+                        involved_contract_ids.append(id)
+
+    for d in involved_contract_ids:
+        for con_name,values in contract_ast_data.items():
+            if values['id']==d:
+                if con_name not in involved_contracts:
+                    involved_contracts.append(con_name)
+    print(f'fully implemented: the size of deployed bytecode: involved contract names')
+    print(f'++++ {implemented}:{bytecode_size}:{involved_contracts} ++++')
+
+
+    # for name,value in target_ftn_info.items():
+    #     source_code=get_source_code(file,value['src'])
+    #     print(f'==== source code of {name} ====')
+    #     print(source_code)
+    # for name,value in target_sv_info.items():
+    #     source_code=get_source_code(file,value['src'])
+    #     print(f'==== source code of {name} ====')
+    #     print(source_code)
+    # except ParserError as e:
+    #     print(f'Error message: {str(e)}')
+    # except KeyError as e:
+    #
+    #     print(f'Error message: {str(e)}')
+    # except Exception as e:
+    #     error_msg = str(e)
+    #     print(f'Error message: {error_msg}')
 
 
 def main():
