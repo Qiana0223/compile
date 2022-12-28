@@ -1,4 +1,21 @@
 
+0x0144F889f8ED5Ec7962E2936683D3784b550C71A.sol	0.5.0	ELE 
+/media/sf___share_vms/sGuard_contracts/0x0144F889f8ED5Ec7962E2936683D3784b550C71A.sol:ELE
+
+0x16faf6680d515c96d3400016bb32868e2a0e635f.sol	0.4.20	SafeMath
+/media/sf___share_vms/sGuard_contracts/0x16faf6680d515c96d3400016bb32868e2a0e635f.sol:SafeMath
+
+0xa4ca8d3ebf889cffc6b9d360b9c2cd3e0493b5a6.sol	0.5.2	HBTCToken
+/media/sf___share_vms/sGuard_contracts/0xa4ca8d3ebf889cffc6b9d360b9c2cd3e0493b5a6.sol:HBTCToken
+
+0x3c98b61ee05c0ac38276275b688d4d11a45d926d.sol	0.5.15	ERC20Token (solc error)
+/media/sf___share_vms/sGuard_contracts/0x3c98b61ee05c0ac38276275b688d4d11a45d926d.sol:ERC20Token
+
+
+0x6a5ff3ceecae9ceb96e6ac6c76b82af8b39f0eb3.sol	0.5.0	MintableToken (not fully implemented)
+/media/sf___share_vms/sGuard_contracts/0x6a5ff3ceecae9ceb96e6ac6c76b82af8b39f0eb3.sol:MintableToken
+
+==========================================================
 sudo docker image build -t 23278942/contract_analysis:iccfwnc .
 
 sudo docker push 23278942/contract_analysis:iccfwnc 
@@ -47,6 +64,9 @@ reason: in the Singularity contaienr, access .local directory require root permi
 
 0.7.5
 /home/wei/PycharmProjects/contract_status/iccfwnc/examples/Forwarder.sol:Forwarder
+
+0.5.0
+/home/wei/PycharmProjects/contract_status/iccfwnc/examples/SolidifiedDepositableFactory.sol:SolidifiedDepositableFactory
 
 
 #=======================================================

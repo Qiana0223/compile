@@ -55,3 +55,22 @@ the function to execute 'solc ...' command to obtain compiled results
             )
 
     return result
+
+
+def call_solc_command(file:str, output_folder:str ):
+    """
+the function to execute 'solc ...' command to obtain compiled results
+    :param file: the solidity file path that is to be compiled
+    :param output_folder: the directory to hold the binary files
+    :return:
+    """
+    cmd = ["solc", "--optimize", "--bin", file , "-o", output_folder]
+    try:
+        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    except Exception:
+        print(
+            "Compiler not found. Make sure that solc is installed and in PATH, or set the SOLC environment variable."
+        )
+
+
+    return None

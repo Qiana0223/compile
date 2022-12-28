@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""install iccfwnc and deploy source-dist and wheel to pypi.python.org.
+"""install compile and deploy source-dist and wheel to pypi.python.org.
 
 deps (requires up2date version):
     *) pip install --upgrade pip wheel setuptools twine
@@ -14,7 +14,7 @@ import os
 import io
 
 # Package meta-data.
-NAME = "iccfwnc"
+NAME = "compile"
 DESCRIPTION = "tool to find functions calling functions that are not implemented"
 URL = "xxxx"
 AUTHOR = "contract analyis"
@@ -86,11 +86,19 @@ setup(
     author=AUTHOR,
     author_mail=AUTHOR_MAIL,
     license="MIT",
+    # classifiers=[
+    #     "Development Status :: 3 - Alpha",
+    #     "Intended Audience :: Science/Research",
+    #     "Topic :: Software Development :: Disassemblers",
+    #     "License :: OSI Approved :: MIT License",
+    #     "Programming Language :: Python :: 3.6",
+    #     "Programming Language :: Python :: 3.7",
+    # ],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
-        "Topic :: Software Development :: Disassemblers",
-        "License :: OSI Approved :: MIT License",
+        "Topic :: compile",
+        "License :: None",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
@@ -102,6 +110,6 @@ setup(
     extras_require=EXTRAS,
     package_data={},
     include_package_data=True,
-    entry_points={"console_scripts": ["iccfwnc=iccfwnc.identify_contract_calling_functionsWithNoCode:main"]},
+    entry_points={"console_scripts": ["compile=compile.identify_contract_calling_functionsWithNoCode:main"]},
     cmdclass={"verify": VerifyVersionCommand},
 )

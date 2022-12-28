@@ -26,11 +26,11 @@ RUN pip3 install solc-select
 RUN solc-select install all
 RUN  export PATH=/usr/local/bin:$PATH
 
-COPY .  /opt/iccfwnc
-RUN cd /opt/iccfwnc \
+COPY .  /opt/compile
+RUN cd /opt/compile \
   && python3 setup.py install
 
-WORKDIR /home/iccfwnc
+WORKDIR /home/compile
 
 
 
